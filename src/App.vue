@@ -161,7 +161,8 @@ async function clearAll(){
               <div class="meta">
                 <strong class="name">{{ m.name || '名無し' }}</strong>
                 <small class="time">{{ m.at }}</small>
-                <button class="btn-mini" type="button" @click="removeOne(m.id)">削除</button>
+                <button class="btn-mini" type="button"
+                v-if="m.uid && auth.currentUser && m.uid === auth.currentUser.uid"@click="removeOne(m.id)">削除</button>
               </div>
               <div class="text" v-text="m.text"></div>
             </li>
