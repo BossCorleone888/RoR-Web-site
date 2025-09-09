@@ -1,28 +1,33 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import MarkdownIt from 'markdown-it'
+import { db, ensureAnonLogin, ts } from './lib/firebase'
+import {
+  collection, addDoc, deleteDoc, doc,
+  onSnapshot, query, orderBy, getDocs
+} from 'firebase/firestore'
+
 const md = new MarkdownIt({ breaks: true })
 
 /* =============== 左サイドナビ：MD自動読込（PC専用） =============== */
-/* ./content/*.md を生で文字列として一括取り込み */
-const mdLoaders = import.meta.glob('./content/*.md', { as: 'raw' })
+const mdLoaders = import.meta.glob('./content/*.md', {
+  query: '?raw',
+  import: 'default',
+})
 
 const topics = ref([]) // { id, title, body }
 const SELECT_KEY = 'ror_selected_topic_v2'
 const selectedId = ref('')
 
 onMounted(async () => {
-  // パスでソートして安定した順序（01_, 02_…が上から並ぶ）
   const entries = Object.entries(mdLoaders).sort((a, b) => a[0].localeCompare(b[0], 'ja'))
   for (const [path, loader] of entries) {
     const text = await loader()
     const lines = text.split(/\r?\n/)
-    // 最初に出てくる非空行をタイトル扱い（"# "があれば除去）
     let title = (lines.find(l => l.trim().length) ?? 'Untitled').replace(/^#+\s*/, '').trim()
     const id = path.split('/').pop().replace(/\.md$/, '')
     topics.value.push({ id, title, body: text })
   }
-  // 前回選択の復元 or 先頭を選択
   const saved = localStorage.getItem(SELECT_KEY)
   selectedId.value = (saved && topics.value.some(t => t.id === saved)) ? saved : (topics.value[0]?.id || '')
 })
@@ -30,63 +35,70 @@ onMounted(async () => {
 watch(selectedId, v => { if (v) localStorage.setItem(SELECT_KEY, v) })
 
 const selectedTopic = computed(() => topics.value.find(t => t.id === selectedId.value))
-/* 🔽 追加：Markdown → HTML に変換して表示用にする */
 const selectedHtml  = computed(() => selectedTopic.value ? md.render(selectedTopic.value.body) : '')
 
-/* =============== 右：メンバー投稿（ローカル保存） =============== */
-const STORAGE_KEY = 'ror_messages_v2'
+/* =============== 右：メンバー投稿（Firestore共有） =============== */
 const MAX_CHARS = 500
 const MAX_LINES = 10
-const MAX_IMAGE_SIZE = 1.5e6 // 約1.5MB
 
 const nameInput = ref('')
 const newMessage = ref('')
-const imageFile = ref(null)
-const imageDataUrl = ref('')
-const messages = ref([]) // {id,name,text,at,img}
-
-onMounted(() => {
-  try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) messages.value = JSON.parse(raw) } catch {}
-})
-watch(messages, v => localStorage.setItem(STORAGE_KEY, JSON.stringify(v)), { deep: true })
+const messages = ref([]) // {id,name,text,at}
 
 const charCount = computed(() => newMessage.value.length)
 const lineCount = computed(() => newMessage.value ? newMessage.value.split(/\r\n|\r|\n/).length : 0)
 const isCharOver = computed(() => charCount.value > MAX_CHARS)
 const isLineOver = computed(() => lineCount.value > MAX_LINES)
 const canSubmit = computed(() =>
-  !!newMessage.value.trim() && !isCharOver.value && !isLineOver.value && (!imageFile.value || !!imageDataUrl.value)
+  !!newMessage.value.trim() && !isCharOver.value && !isLineOver.value
 )
 
-const imageError = ref('')
-function onFileChange(e){
-  imageError.value = ''; imageDataUrl.value = ''
-  const file = e.target.files?.[0]
-  imageFile.value = file || null
-  if(!file) return
-  if(!file.type.startsWith('image/')){ imageError.value = '画像ファイルを選んでください（JPEG/PNGなど）。'; imageFile.value=null; return }
-  if(file.size > MAX_IMAGE_SIZE){ imageError.value = `画像が大きすぎます（最大 ${(MAX_IMAGE_SIZE/1e6).toFixed(1)}MB）`; imageFile.value=null; return }
-  const reader = new FileReader()
-  reader.onload = () => { imageDataUrl.value = String(reader.result||'') }
-  reader.onerror = () => { imageError.value = '画像の読み込みに失敗しました。'; imageFile.value=null }
-  reader.readAsDataURL(file)
-}
-function clearImage(){ imageFile.value=null; imageDataUrl.value='' }
+const col = collection(db, 'messages')
+
+onMounted(async () => {
+  await ensureAnonLogin()
+  const q = query(col, orderBy('created_at', 'desc'))
+  onSnapshot(q, (snap) => {
+    messages.value = snap.docs.map(d => {
+      const data = d.data()
+      const dt = data.created_at?.toDate ? data.created_at.toDate() : new Date()
+      return {
+        id: d.id,
+        name: data.name || '名無し',
+        text: data.text || '',
+        at: dt.toLocaleString(),
+      }
+    })
+  })
+})
 
 function handleSubmit(){
   const t = newMessage.value.trim()
   const nm = nameInput.value.trim() || '名無し'
   if(!canSubmit.value) return
-  messages.value.unshift({ id: Date.now(), name: nm, text: t, at: new Date().toLocaleString(), img: imageDataUrl.value||'' })
-  newMessage.value = ''; imageFile.value = null; imageDataUrl.value = ''
+  addDoc(col, {
+    name: nm,
+    text: t,
+    created_at: ts(),
+  }).then(() => {
+    newMessage.value = ''
+  })
 }
-function removeOne(id){ messages.value = messages.value.filter(m => m.id !== id) }
-function clearAll(){ if(confirm('全投稿を削除しますか？')){ messages.value = []; localStorage.removeItem(STORAGE_KEY) } }
+
+async function removeOne(id){
+  await deleteDoc(doc(db, 'messages', id))
+}
+
+async function clearAll(){
+  if(!confirm('全投稿を削除しますか？')) return
+  const snap = await getDocs(col)
+  for (const d of snap.docs) await deleteDoc(d.ref)
+}
 </script>
 
 <template>
   <div class="layout-pc">
-    <!-- 左：サイドナビ（独立スクロール・PC専用） -->
+    <!-- 左：サイドナビ -->
     <aside class="sidenav">
       <div class="sidenav-inner">
         <div class="logo">MENU</div>
@@ -104,7 +116,7 @@ function clearAll(){ if(confirm('全投稿を削除しますか？')){ messages.
       </div>
     </aside>
 
-    <!-- 中央：本文（Markdown→HTMLで表もレンダリング） -->
+    <!-- 中央本文 -->
     <main class="content">
       <h2 class="title">♠♡♦♧ RoRメンバーサイト ♠♡♦♧</h2>
       <p class="lead">ここではメンバー向けに <strong>ルール</strong> や <strong>ノウハウ</strong> を共有します。</p>
@@ -136,15 +148,6 @@ function clearAll(){ if(confirm('全投稿を削除しますか？')){ messages.
             <span :class="{over:isLineOver}">{{ lineCount }}/{{ MAX_LINES }}行</span>
           </div>
 
-          <label class="lbl">画像（任意）</label>
-          <input type="file" accept="image/*" @change="onFileChange" />
-          <p v-if="imageError" class="err">{{ imageError }}</p>
-
-          <div v-if="imageDataUrl" class="preview">
-            <img :src="imageDataUrl" alt="preview" />
-            <button class="btn-outline" type="button" @click="clearImage">画像をクリア</button>
-          </div>
-
           <div class="row">
             <button class="btn-primary" type="submit" :disabled="!canSubmit">投稿</button>
             <button class="btn-danger" type="button" @click="clearAll">全削除</button>
@@ -161,20 +164,19 @@ function clearAll(){ if(confirm('全投稿を削除しますか？')){ messages.
                 <button class="btn-mini" type="button" @click="removeOne(m.id)">削除</button>
               </div>
               <div class="text" v-text="m.text"></div>
-              <img v-if="m.img" :src="m.img" class="attached" alt="attached image" />
             </li>
             <li v-if="messages.length===0" class="empty">まだ投稿はありません。</li>
           </ul>
         </div>
 
-        <p class="note">※ 現在はこの端末（ブラウザ）内に保存。共有掲示板化は後で Firebase / Supabase 連携で。</p>
+        <p class="note">※ Firestoreでリアルタイム共有しています。</p>
       </div>
     </aside>
   </div>
 </template>
 
 <style>
-/* ===== PC専用レイアウト（3カラム） ===== */
+/* ===== レイアウトやスタイルは元と同じ ===== */
 .layout-pc{
   display:grid;
   grid-template-columns: 260px 1fr 360px;
@@ -184,71 +186,47 @@ function clearAll(){ if(confirm('全投稿を削除しますか？')){ messages.
   margin: 0 auto;
   font-family: system-ui,-apple-system,Segoe UI,Roboto,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif;
 }
-
-/* ===== サイドナビ（左：独立スクロール） ===== */
-.sidenav{
-  position: sticky; top: 0; height: 100vh; overflow: hidden;
-  border: 1px solid #eee; border-radius: 12px; background: #fff;
-}
+.sidenav{ position: sticky; top: 0; height: 100vh; overflow: hidden;
+  border: 1px solid #eee; border-radius: 12px; background: #fff; }
 .sidenav-inner{ height: 100%; overflow-y: auto; padding: 12px; }
 .logo{ font-weight: 800; letter-spacing: .5px; color:#42b883; margin: 6px 4px 10px; }
 .nav-list{ list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
-.nav-link{
-  display:flex; align-items:center; gap:10px; text-decoration: none; color:#333; background:#fff;
-  border:1px solid #e9e9e9; border-radius: 10px; padding: 10px 12px; transition: background .15s, border-color .15s, box-shadow .15s;
-}
+.nav-link{ display:flex; align-items:center; gap:10px; text-decoration: none; color:#333; background:#fff;
+  border:1px solid #e9e9e9; border-radius: 10px; padding: 10px 12px; transition: background .15s, border-color .15s, box-shadow .15s; }
 .nav-link .dot{ width:8px; height:8px; border-radius:50%; background:#d0d0d0; }
 .nav-link.active .dot{ background:#42b883; }
 .nav-link:hover{ background:#f7f7f7; }
 .nav-link.active{ border-color:#42b883; box-shadow:0 0 0 2px rgba(66,184,131,.15) inset; }
 .nav-text{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ===== 中央本文（Markdown→HTML の見た目） ===== */
-.content{ background:#fff; border:1px solid #eee; border-radius:12px; padding:24px; }
-.lead{ text-align:left; margin:8px 0 24px; color:#333; }
-.content{ text-align:left; }  /* 念のため本文側を左寄せ固定 */
-.md{ text-align:left; }       /* Markdownレンダリングも左寄せ */
+.content{ background:#fff; border:1px solid #eee; border-radius:12px; padding:24px; text-align:left; }
+.lead{ margin:8px 0 24px; color:#333; }
 .title{ text-align:center; color:#42b883; margin:0; }
 
-/* Markdownスタイル */
-.md{ color:#222; line-height:1.8; }
+.md{ color:#222; line-height:1.8; text-align:left; }
 .md h1,.md h2,.md h3{ margin:1.2em 0 .6em; }
 .md p{ margin:.6em 0; }
 .md ul, .md ol{ padding-left: 1.4em; margin:.6em 0; }
-.md code{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; background:#f5f5f5; padding:0 .25em; border-radius:4px; }
+.md code{ background:#f5f5f5; padding:0 .25em; border-radius:4px; }
 .md pre code{ display:block; padding:10px; overflow:auto; }
-.md hr{ border:0; border-top:1px solid #eee; margin:1rem 0; }
-.md img{ max-width:100%; height:auto; }
-/* 表（MDテーブルを見やすく） */
-.md table{ width:100%; border-collapse: collapse; margin: .6rem 0; }
-.md th, .md td{ border:1px solid #e5e5e5; padding:6px 8px; vertical-align: top; }
+.md table{ width:100%; border-collapse: collapse; margin:.6rem 0; }
+.md th, .md td{ border:1px solid #e5e5e5; padding:6px 8px; }
 .md th{ background:#fafafa; }
 
-.panel h3{ margin-top:0; }
-.knowhow{ white-space: pre-line; text-align: left; } /* ← 既存と互換のため残すだけ。今は未使用 */
-.loading{ color:#777; }
-
-/* ===== 右投稿 ===== */
-.sidebar{
-  position: sticky; top: 0; height: 100vh; overflow: auto;
-  background: #fff; border:1px solid #eee; border-radius:12px;
-}
+.sidebar{ position: sticky; top: 0; height: 100vh; overflow: auto;
+  background:#fff; border:1px solid #eee; border-radius:12px; }
 .sidebar .pad{ padding:16px; }
 .card{ background:#fff; border:1px solid #eee; border-radius:12px; padding:16px; }
 
 .lbl{ display:block; font-size:12px; color:#555; margin-top:8px; }
-.input, .textarea{ width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid #ddd; border-radius:8px; }
+.input, .textarea{ width:100%; padding:10px 12px; border:1px solid #ddd; border-radius:8px; box-sizing:border-box; }
 .textarea{ resize: vertical; }
 .hint{ display:flex; gap:6px; font-size:12px; color:#666; margin:6px 0 8px; }
 .hint .over{ color:#e24c4c; font-weight:600; }
 
-.preview{ display:flex; align-items:center; gap:10px; margin:8px 0; }
-.preview img{ max-width:100%; max-height:120px; border:1px solid #eee; border-radius:8px; }
-
 .row{ display:flex; gap:8px; margin-top:10px; }
 .btn-primary{ background:#42b883; color:#fff; border:none; border-radius:8px; padding:8px 14px; cursor:pointer; }
 .btn-danger{ background:#e24c4c; color:#fff; border:none; border-radius:8px; padding:8px 14px; cursor:pointer; }
-.btn-outline{ background:transparent; color:#333; border:1px solid #ccc; border-radius:8px; padding:6px 10px; cursor:pointer; }
 .btn-mini{ background:transparent; border:1px solid #ddd; border-radius:6px; padding:2px 8px; cursor:pointer; }
 
 .posts{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:12px; }
@@ -257,7 +235,6 @@ function clearAll(){ if(confirm('全投稿を削除しますか？')){ messages.
 .meta .name{ color:#333; }
 .meta .time{ color:#777; margin-left:auto; }
 .text{ white-space: pre-wrap; margin-top:4px; }
-.attached{ display:block; margin-top:8px; max-width:100%; border-radius:8px; border:1px solid #eee; }
 
 .note{ font-size:12px; color:#666; margin:8px 4px; }
 body{ background:#f9f9f9; }
