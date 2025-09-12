@@ -155,9 +155,9 @@ async function removeOne(id){
 
 </script>
 
-<!-- 🔒 パスワードゲート -->
-<template v-if="!gateOpen">
-  <div class="gate">
+<template>
+  <!-- 🔒 パスワードゲート -->
+  <div v-if="!gateOpen" class="gate">
     <div class="gate-card">
       <h3>🔒 メンバー専用</h3>
       <p class="gate-tip">パスワードを入力して入室してね</p>
@@ -166,10 +166,9 @@ async function removeOne(id){
       <p v-if="gateErr" class="gate-err">{{ gateErr }}</p>
     </div>
   </div>
-</template>
 
-<template v-else>
-  <div class="layout-pc">
+  <!-- 👇 ラッパーはこの1個だけにする（v-showで制御） -->
+  <div class="layout-pc" v-show="gateOpen">
     <!-- 左：サイドナビ -->
     <aside class="sidenav">
       <div class="sidenav-inner">
@@ -189,7 +188,7 @@ async function removeOne(id){
         </nav>
       </div>
     </aside>
-
+    
     <!-- 中央本文 -->
     <main class="content">
       <h2 class="title">♠♡♦♧ RoRメンバーサイト ♠♡♦♧</h2>
