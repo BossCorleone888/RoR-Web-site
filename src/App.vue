@@ -277,7 +277,7 @@ async function removeOne(id){
   padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;          /* ← 子要素間に一定の隙間 */
+  gap: 2px;          /* ← 子要素間に一定の隙間 */
  }
   .nav-wrap{
   flex: 1 1 auto;
