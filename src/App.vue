@@ -12,24 +12,31 @@ import { onAuthStateChanged } from 'firebase/auth'
 const md = new MarkdownIt({ breaks: true })
 
 /* =============== 左サイド：Markdown ロード & 本文 =============== */
-const mdLoaders = import.meta.glob('./content/*.md?raw')  // ← ここだけ変更
+// 文字列を“直接”受け取る（モジュールを介さないで型を固定）
+const mdFiles = import.meta.glob('./content/*.md', {
+ query: '?raw',
+ import: 'default',
+ eager: true,
+})
 const topics = ref([])
 const selectedId = ref(null)
 const selectedHtml = ref('')
 
-async function loadTopics() {
-  const items = []
-  for (const [path, loader] of Object.entries(mdLoaders)) {
-    const mod = await loader()
-    const raw = mod?.default ?? mod   // ← 文字列を取り出す
-    if (typeof raw !== 'string') continue  // 念のためガード
-    const first = (raw.split(/\r?\n/).find(l => l.trim()) || '').replace(/^#\s*/, '')
-    const id = path.split('/').pop().replace(/\.md$/, '')
-    items.push({ id, title: first || id, raw })
-  }
-  items.sort((a, b) => a.id.localeCompare(b.id, 'ja'))
-  topics.value = items
-  if (!selectedId.value && items.length) selectedId.value = items[0].id
+ function loadTopics() {
+   const items = []
+   for (const [path, raw] of Object.entries(mdFiles)) {
+     if (typeof raw !== 'string') {
+       console.warn('[md] not string:', path, typeof raw)
+       continue
+     }
+     const firstLine = raw.split(/\r?\n/).find(l => l.trim()) || ''
+     const title = firstLine.replace(/^#\s*/, '') || '(無題)'
+     const id = path.split('/').pop().replace(/\.md$/, '')
+     items.push({ id, title, raw })
+   }
+   items.sort((a, b) => a.id.localeCompare(b.id, 'ja'))
+   topics.value = items
+   if (!selectedId.value && items.length) selectedId.value = items[0].id
 }
 
 watch(selectedId, () => {
