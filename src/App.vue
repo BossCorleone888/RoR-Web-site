@@ -41,31 +41,41 @@ function logoutGate(){
 
 /* =============== 左サイド：Markdown ロード & 本文 =============== */
 const md = new MarkdownIt({ breaks: true })
-const mdLoaders = import.meta.glob('./content/*.md?raw')
 
-const topics = ref([])          // [{id,title,raw}]
-const selectedId = ref(null)    // 現在選択中の id
-const selectedHtml = ref('')    // 表示用 HTML
+// ビルド時に同期読み込み
+const mdModules = import.meta.glob('./content/*.md', { as: 'raw', eager: true })
 
-async function loadTopics() {
-  const items = []
-  for (const [path, loader] of Object.entries(mdLoaders)) {
-    const mod = await loader()
-    const raw = mod?.default ?? mod
-    if (typeof raw !== 'string') continue
-    const first = (raw.split(/\r?\n/).find(l => l.trim()) || '').replace(/^#\s*/, '')
-    const id = path.split('/').pop().replace(/\.md$/, '')
-    items.push({ id, title: first || id, raw })
-  }
+const topics = ref([])          // ← 型注釈を外す
+const selectedId = ref(null)
+const selectedHtml = ref('')
+
+function loadTopicsSync() {
+  const items = Object.entries(mdModules)
+    .map(([path, raw]) => {
+      if (typeof raw !== 'string') return null
+      const first = (raw.split(/\r?\n/).find(l => l.trim()) || '').replace(/^#\s*/, '')
+      const id = (path.split('/').pop() || '').replace(/\.md$/, '')
+      return { id, title: first || id, raw }
+    })
+    .filter(Boolean)
   items.sort((a, b) => a.id.localeCompare(b.id, 'ja'))
   topics.value = items
   if (!selectedId.value && items.length) selectedId.value = items[0].id
+  if (items.length === 0) {
+    console.warn('[content] 0 items. 「src/content」に *.md を置いてね')
+  }
 }
 
 watch(selectedId, () => {
   const t = topics.value.find(x => x.id === selectedId.value)
   selectedHtml.value = t ? md.render(t.raw) : ''
 })
+
+watch(selectedId, () => {
+  const t = topics.value.find(x => x.id === selectedId.value)
+  selectedHtml.value = t ? md.render(t.raw) : ''
+})
+
 
 /* =============== 右：メンバー投稿（Firestore共有） =============== */
 const MAX_CHARS = 500
@@ -91,7 +101,7 @@ onMounted(async () => {
     if (t && t === SITE_HASH) gateOpen.value = true
   }
 
-  await loadTopics()
+  loadTopicsSync()
 
   if (db) {
     hasFirebase.value = true
