@@ -174,7 +174,7 @@ async function removeOne(id){
       <div class="sidenav-inner">
         <img :src="rorLogo" alt="RoR ロゴ" class="brand-logo" decoding="async" />
         <div class="logo">MENU</div>
-        <nav aria-label="サイドナビ">
+        <nav aria-label="サイドナビ" class="nav-wrap">
           <ul class="nav-list">
             <li v-for="t in topics" :key="t.id">
               <a href="#" class="nav-link" :class="{active: t.id===selectedId}"
