@@ -294,6 +294,35 @@ async function removeOne(id){
 }
 .logout:hover{ background:#f2f2f2; }
 
+.logout{
+  margin-top: auto;         /* 一番下へ固定（既存のまま） */
+  align-self: stretch;
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+
+  background: #e53935;      /* 赤背景 */
+  border: 1px solid #c62828;
+  color: #ffeb3b;           /* 黄色文字 */
+  font-weight: 700;         /* 太字 */
+  text-align: center;
+  text-shadow: 0 1px 0 rgba(0,0,0,.25);
+}
+
+.logout:hover{
+  background: #d32f2f;
+  border-color: #b71c1c;
+}
+
+.logout:active{
+  background: #c62828;
+}
+
+.logout:focus-visible{
+  outline: 2px solid #ffeb3b;  /* アクセシビリティ */
+  outline-offset: 2px;
+}
+
 .logo{
   font-weight: 800;
   letter-spacing: .5px;
