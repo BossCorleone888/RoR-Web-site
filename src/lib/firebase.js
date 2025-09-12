@@ -20,6 +20,14 @@ const firebaseConfig = {
   appId:       import.meta.env.VITE_FB_APP_ID,
 }
 
+// src/lib/firebase.js の config 直後に一時追加（デプロイ前に消してOK）
+console.log('[FB CFG]', {
+  apiKey: !!import.meta.env.VITE_FB_API_KEY,
+  authDomain: import.meta.env.VITE_FB_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FB_PROJECT_ID,
+  appId: import.meta.env.VITE_FB_APP_ID
+}, 'PROD=', import.meta.env.PROD);
+
 // 欠落チェック
 const missing = Object.entries(firebaseConfig)
   .filter(([, v]) => !v)
