@@ -305,10 +305,10 @@ async function removeOne(id){
 .nav-wrap{ margin-top: 8px; }
 .nav-list{ list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 .nav-link{ display:flex; align-items:center; gap:10px; text-decoration: none; color:#333; background:#fff;
-  border:1px solid #e9e9e9; border-radius: 10px; padding: 10px 12px; transition: background .15s, border-color .15s, box-shadow .15s; }
+  border:1px solid #e9e9e9; border-radius: 10px; padding: 10px 12px; transition: .15s, border-color .15s, box-shadow .15s; }
 .nav-link .dot{ width:8px; height:8px; border-radius:50%; background:#d0d0d0; }
 .nav-link.active .dot{ background:#42b883; }
-.nav-link:hover{ background:#f7f7f7; }
+.nav-link:hover{ background:#7fa94e; }
 .nav-link.active{ border-color:#42b883; box-shadow:0 0 0 2px rgba(66,184,131,.15) inset; }
 .nav-text{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .side-sep{
@@ -319,13 +319,13 @@ async function removeOne(id){
 .btn-mini.logout{
   display: block; width: 100%;
   padding: 10px 12px; border-radius: 8px;
-  background: #e53935; border: 1px solid #b71c1c;
+  background: #c39999; border: 1px solid #b71c1c;
   color: #ffeb3b; font-weight: 700; text-align: center;
   text-shadow: 0 1px 0 rgba(0,0,0,.25);
   margin-top: 0; /* 余白は .side-sep が作る */
 }
-.btn-mini.logout:hover{ background:#f0c3c3; border-color:#b71c1c; }
-.btn-mini.logout:active{ background:#c62828; }
+.btn-mini.logout:hover{ background:#d41a1a; border-color:#b71c1c; }
+.btn-mini.logout:active{ background:#d7a5aa; }
 .btn-mini.logout:focus-visible{ outline:2px solid #ffeb3b; outline-offset:2px; }
 
 /* ===== 本文：中央 ===== */
