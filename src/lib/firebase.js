@@ -1,40 +1,40 @@
-// src/lib/firebase.js
-// ./lib/firebase.js or ./lib/firebase.ts
-import { initializeApp } from 'firebase/app'
-import {
-  getFirestore, serverTimestamp as ts
-} from 'firebase/firestore'
-import {
-  getAuth, onAuthStateChanged, signInAnonymously, setPersistence, browserLocalPersistence
-} from 'firebase/auth'
+// ./lib/firebase.js
+import { initializeApp, getApps, getApp } from 'firebase/app'
+import { getFirestore, serverTimestamp as ts } from 'firebase/firestore'
+import { getAuth, signInAnonymously, setPersistence, browserLocalPersistence } from 'firebase/auth'
 
-// ↓ あなたの Firebase 設定に差し替え
+// ↓↓↓ Firebase コンソール > Project settings > General > Your apps(Web) の値で “必ず同じプロジェクト”のものをコピペ
 const firebaseConfig = {
-  apiKey: '...',
-  authDomain: '...',
-  projectId: '...',
-  appId: '...',
+  apiKey: 'YOUR_WEB_API_KEY',
+  authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
+  projectId: 'YOUR_PROJECT_ID',
+  appId: 'YOUR_APP_ID',
 }
 
-const app  = initializeApp(firebaseConfig)
-export const db   = getFirestore(app)
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
+
+export const db = getFirestore(app)
 export const auth = getAuth(app)
 export { ts }
 
-// ✅ 匿名ログインを“必ず”確立して返す
+// ✅ デバッグログ：今どのプロジェクト鍵で初期化してるかを確認
+console.log('[firebase] projectId=', app.options.projectId, ' apiKey=', (app.options.apiKey || '').slice(0,8) + '...')
+
+// 匿名ログインを“必ず”確立して返す（失敗時にコードを出す）
 export async function ensureAnonLogin() {
-  // 永続化をローカルに（毎回 UID が変わるのを防ぐ）
   await setPersistence(auth, browserLocalPersistence)
 
-  if (auth.currentUser) return auth.currentUser
+  try {
+    // 既にサインイン済みならそれを返す
+    if (auth.currentUser) return auth.currentUser
 
-  // 既にサインイン中かもしれないので、まず一回待つ
-  const userNow = await new Promise(resolve => {
-    const off = onAuthStateChanged(auth, u => { off(); resolve(u) })
-  })
-  if (userNow) return userNow
-
-  // まだなら匿名サインイン
-  const cred = await signInAnonymously(auth)
-  return cred.user
+    // まだなら匿名サインイン
+    const cred = await signInAnonymously(auth)
+    console.log('[anon] ok uid=', cred.user?.uid)
+    return cred.user
+  } catch (e) {
+    console.error('[anon] error code=', e?.code, ' message=', e?.message)
+    // Network > accounts:signUp の Response も見ると “OPERATION_NOT_ALLOWED / API_KEY_INVALID”等が出る
+    throw e
+  }
 }
