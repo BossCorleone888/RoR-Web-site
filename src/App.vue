@@ -277,6 +277,7 @@ async function removeOne(id){
   overflow-y: auto;
   min-height: 0;   /* ← 重要：中身が大きくても縮められる */
 }
+
 .logout{
   margin-top: 12px;     /* これで一番下へ */
   align-self: stretch;  /* 横いっぱい（好みで） */
@@ -285,8 +286,6 @@ async function removeOne(id){
   padding:8px 12px;
   background:#fafafa;
 }
-.logout:hover{ background:#f2f2f2; }
-
 .logout{
   margin-top: auto;         /* 一番下へ固定（既存のまま） */
   align-self: stretch;
@@ -301,11 +300,13 @@ async function removeOne(id){
   text-align: center;
   text-shadow: 0 1px 0 rgba(0,0,0,.25);
 }
-
+.logout:hover{
+  background: #d32f2f;
+  border-color: #b71c1c;
+}
 .logout:active{
   background: #c62828;
 }
-
 .logout:focus-visible{
   outline: 2px solid #ffeb3b;  /* アクセシビリティ */
   outline-offset: 2px;
