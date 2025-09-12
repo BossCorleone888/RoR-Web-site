@@ -21,7 +21,10 @@ const firebaseConfig = {
 }
 
 // 欠落チェック
-const missing = Object.entries(firebaseConfig).filter(([, v]) => !v).map(([k]) => k)
+const missing = Object.entries(firebaseConfig)
+  .filter(([, v]) => !v)
+  .map(([k]) => k)
+
 if (missing.length) {
   const msg = `[firebaseConfig] missing keys: ${missing.join(', ')}`
   if (import.meta.env.DEV) {
@@ -44,4 +47,47 @@ export { ts }
 // ==========================================================
 async function waitForAuthReady(timeoutMs = 1500) {
   if (auth.currentUser !== null) return auth.currentUser
-  await new Promise((resol
+  await new Promise((resolve) => {
+    const off = onAuthStateChanged(auth, () => { off(); resolve() })
+    setTimeout(() => {
+      try { off() } catch {}
+      resolve()
+    }, timeoutMs)
+  })
+  return auth.currentUser
+}
+
+export async function ensureAnonLogin() {
+  // 永続化（localStorage優先 → ダメなら inMemory）
+  try {
+    await setPersistence(auth, browserLocalPersistence)
+  } catch (e) {
+    console.warn('[auth] localPersistence NG → inMemory', e?.code || e)
+    try {
+      await setPersistence(auth, inMemoryPersistence)
+    } catch (e2) {
+      console.error('[auth] setPersistence failed', e2?.code || e2)
+    }
+  }
+
+  const ready = await waitForAuthReady()
+  if (ready) return ready
+
+  // オフラインならサインインを諦める
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    console.warn('[auth] offline, skip signInAnonymously')
+    return null
+  }
+
+  try {
+    const cred = await signInAnonymously(auth)
+    return cred.user
+  } catch (e) {
+    if (e?.code === 'auth/network-request-failed') {
+      console.warn('[auth] network-request-failed, continue without auth')
+      return null
+    }
+    console.error('[auth] anonymous sign-in failed', e?.code, e?.message || e)
+    return null
+  }
+}
