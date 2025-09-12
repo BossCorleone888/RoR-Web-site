@@ -1,27 +1,38 @@
-// === 診断パネル（?debug=1 で表示） ===
-import { signInAnonymously } from "firebase/auth"
-const debugInfo = ref({ show:false, step:'idle', anon:'(not tried)', fetch:'(not tried)' })
+// src/lib/firebase.js
+import { initializeApp, getApps, getApp } from 'firebase/app'
+import { getFirestore, serverTimestamp as ts } from 'firebase/firestore'
+import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously } from 'firebase/auth'
 
-onMounted(() => {
-  const url = new URL(location.href)
-  debugInfo.value.show = url.searchParams.get('debug') === '1'
-})
+// ★ Vite 環境変数から読む（.env / .env.production に値を入れてある前提）
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FB_API_KEY,
+  authDomain: import.meta.env.VITE_FB_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FB_PROJECT_ID,
+  appId: import.meta.env.VITE_FB_APP_ID,
+}
 
-async function runDiag(){
-  debugInfo.value.step = 'running...'
-  // 1) Google 到達チェック（204）
+// 値チェック（ミスに早く気づく）
+for (const [k, v] of Object.entries(firebaseConfig)) {
+  if (!v) throw new Error(`[firebaseConfig] ${k} is missing`)
+}
+
+// 既存インスタンスの再利用（Vite HMR 対策）
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
+
+// 🔹 ここを “named export” で揃える
+export const db   = getFirestore(app)
+export const auth = getAuth(app)
+export { ts }
+
+// 匿名ログインを確立して返す（エラー内容も出す）
+export async function ensureAnonLogin() {
+  await setPersistence(auth, browserLocalPersistence)
   try {
-    const r = await fetch('https://www.googleapis.com/generate_204', { mode:'no-cors' })
-    debugInfo.value.fetch = 'generate_204: ok (no-cors)'
-  } catch(e){
-    debugInfo.value.fetch = 'generate_204: FAILED ' + (e?.message||e)
+    if (auth.currentUser) return auth.currentUser
+    const cred = await signInAnonymously(auth)
+    return cred.user
+  } catch (e) {
+    console.error('[anon] error', e?.code, e?.message)
+    throw e
   }
-  // 2) 匿名サインイン試行
-  try {
-    const u = await signInAnonymously(auth)
-    debugInfo.value.anon = 'anon OK uid=' + (u.user?.uid||'(none)')
-  } catch(e){
-    debugInfo.value.anon = 'anon FAIL code=' + (e?.code||'?') + ' msg=' + (e?.message||e)
-  }
-  debugInfo.value.step = 'done'
 }
