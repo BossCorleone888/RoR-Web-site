@@ -322,6 +322,9 @@ async function removeOne(id){
   font-size: 24px;   /* ← ここだけ追加/変更 */
 }
 
+.nav-list{
+  margin-bottom: 10px;  /* メニュー終端とボタンの間に隙間 */
+}
 .nav-list{ list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 .nav-link{ display:flex; align-items:center; gap:10px; text-decoration: none; color:#333; background:#fff;
   border:1px solid #e9e9e9; border-radius: 10px; padding: 10px 12px; transition: background .15s, border-color .15s, box-shadow .15s; }
