@@ -266,23 +266,20 @@ async function removeOne(id){
   font-family: system-ui,-apple-system,Segoe UI,Roboto,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif;
 }
 .sidenav{
-  position: sticky; top: 0; height: 100vh; overflow: hidden;
+  position: sticky; top: 0; height: 100vh; overflow: auto;
   border: 1px solid #eee; border-radius: 12px; background: #fff; }
-
- .sidenav-inner{
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;          /* ← 子要素間に一定の隙間 */
- }
-  .nav-wrap{
+.sidenav-inner{
+ height: 100%;
+ padding: 12px;
+ display: flex;
+ flex-direction: column;
+ gap: 12px;      /* 上と離す用の余白 */
+ min-height: 0;  /* ← 重要：子のスクロールを有効にする */
+}
+.nav-wrap{
   flex: 1 1 auto;
-  overflow-y: auto;     /* メニューだけスクロール */
-  margin-top: 8px;
+  overflow-y: auto;
+  min-height: 0;   /* ← 重要：中身が大きくても縮められる */
 }
 .logout{
   margin-top: auto;     /* これで一番下へ */
