@@ -10,13 +10,12 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth'
 
-// 🔴 直値を入れる（Firebase Console > プロジェクトの設定 > 一般 > Webアプリ > 構成）
+// 🔴 直値をここに入れる（Firebase Console > プロジェクトの設定 > 一般 > Webアプリ > 構成）
 const firebaseConfig = {
-  apiKey:     'AIzaSyXXXXXXXXXXXXXXX',           // ←←← あなたの apiKey
-  authDomain: 'your-project-id.firebaseapp.com', // ←←← あなたの authDomain
-  projectId:  'your-project-id',                 // ←←← あなたの projectId
-  appId:      '1:1234567890:web:abcdef123456',   // ←←← あなたの appId
-}
+  apiKey:     'AIzaSyCsOqpk7qzesQfNhIVb_Nm-lSAtWoNg2Z0',           // ← ここをあなたの値に
+  authDomain: 'ror-web-site.firebaseapp.com', // ← ここをあなたの値に
+  projectId:  'ror-web-site',                 // ← ここをあなたの値に
+  appId:      '1:1234567890:web:abcde1:777517324792:web:5fe680dc85e91239d71e0d',   // ← ここをあなたの値に
 
 // --- ここからデバッグ表示（本当にこのファイルが使われてるか確認用）---
 function mask(s) { return typeof s==='string' ? s.slice(0,6)+'…' : s }
