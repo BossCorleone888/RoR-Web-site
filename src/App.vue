@@ -319,7 +319,7 @@ async function removeOne(id){
 .btn-mini.logout{
   display: block; width: 100%;
   padding: 10px 12px; border-radius: 8px;
-  background: #c39999; border: 1px solid #b71c1c;
+  background: #f7f3f3; border: 1px solid #b71c1c;
   color: #ffeb3b; font-weight: 700; text-align: center;
   text-shadow: 0 1px 0 rgba(0,0,0,.25);
   margin-top: 0; /* 余白は .side-sep が作る */
