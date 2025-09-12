@@ -10,34 +10,27 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth'
 
-// ---- env から読む（.env.local / .env.production など）----
-const ENV = {
-  apiKey:     import.meta.env.VITE_FB_API_KEY,
-  authDomain: import.meta.env.VITE_FB_AUTH_DOMAIN,
-  projectId:  import.meta.env.VITE_FB_PROJECT_ID,
-  appId:      import.meta.env.VITE_FB_APP_ID,
+// 🔴 直値をここに入れる（Firebase Console > プロジェクトの設定 > 一般 > Webアプリ > 構成）
+const firebaseConfig = {
+  apiKey:     'AIzaSyCsOqpk7qzesQfNhIVb_Nm-lSAtWoNg2Z0',           // ← ここをあなたの値に
+  authDomain: 'ror-web-site.firebaseapp.com', // ← ここをあなたの値に
+  projectId:  'ror-web-site',                 // ← ここをあなたの値に
+  appId:      '1:1234567890:web:abcde1:777517324792:web:5fe680dc85e91239d71e0d',   // ← ここをあなたの値に
 }
 
-// すべて揃っているか
-const HAS_ALL = !!(ENV.apiKey && ENV.authDomain && ENV.projectId && ENV.appId)
-
-let app = null, db = null, auth = null
-if (HAS_ALL) {
-  const cfg = ENV
-  app = getApps().length ? getApp() : initializeApp(cfg)
-  db = getFirestore(app)
-  auth = getAuth(app)
-} else {
-  console.warn('[firebase] config missing. App runs WITHOUT Firebase (UIは表示されるよ)')
+// 値が未設定なら即わかるように
+for (const k of ['apiKey','authDomain','projectId','appId']) {
+  if (!firebaseConfig[k]) throw new Error(`[firebaseConfig] ${k} を直値で入れてください`)
 }
 
-// 必ず存在するエクスポート（使う側は import { ts } from './lib/firebase' で ts() 呼び出し）
-export const ts = serverTimestamp
-export { db, auth }
+// 初期化（HMR対応）
+const app  = getApps().length ? getApp() : initializeApp(firebaseConfig)
+export const db   = getFirestore(app)
+export const auth = getAuth(app)
+export const ts   = serverTimestamp  // 使う側では ts() として呼べる
 
-// 匿名ログイン（Firebase未設定なら何もしない）
+// ===== 匿名ログイン（失敗しても throw しない）=====
 async function waitForAuthReady(timeoutMs = 1500) {
-  if (!auth) return null
   if (auth.currentUser !== null) return auth.currentUser
   await new Promise((resolve) => {
     const off = onAuthStateChanged(auth, () => { off(); resolve() })
@@ -47,15 +40,21 @@ async function waitForAuthReady(timeoutMs = 1500) {
 }
 
 export async function ensureAnonLogin() {
-  if (!auth) return null
-  try {
-    await setPersistence(auth, browserLocalPersistence)
-  } catch {
-    try { await setPersistence(auth, inMemoryPersistence) } catch {}
-  }
+  // 永続化（localStorage → ダメなら inMemory）
+  try { await setPersistence(auth, browserLocalPersistence) }
+  catch { try { await setPersistence(auth, inMemoryPersistence) } catch {} }
+
   const ready = await waitForAuthReady()
   if (ready) return ready
+
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return null
-  try { const cred = await signInAnonymously(auth); return cred.user }
-  catch { return null }
+
+  try {
+    const cred = await signInAnonymously(auth)
+    return cred.user
+  } catch (e) {
+    if (e?.code === 'auth/network-request-failed') return null
+    console.error('[auth] anonymous sign-in failed', e?.code || e)
+    return null
+  }
 }
