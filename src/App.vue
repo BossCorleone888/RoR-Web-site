@@ -327,7 +327,7 @@ async function removeOne(id){
 }
 .nav-list{ list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 .nav-link{ display:flex; align-items:center; gap:10px; text-decoration: none; color:#333; background:#fff;
-  border:1px solid #e9e9e9; border-radius: 10px; padding: 10px 12px; transition: background .15s, border-color .15s, box-shadow .15s; }
+  border:1px solid #e9e9e9; border-radius: 10px; padding: 10px 12px; transition: .15s, border-color .15s, box-shadow .15s; }
 .nav-link .dot{ width:8px; height:8px; border-radius:50%; background:#d0d0d0; }
 .nav-link.active .dot{ background:#42b883; }
 .nav-link:hover{ background:#f7f7f7; }
