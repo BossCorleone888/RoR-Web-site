@@ -106,6 +106,13 @@ async function clearAll(){
 </script>
 
 <template>
+  <div v-if="debugInfo.show" style="position:fixed;right:8px;bottom:8px;z-index:9999;background:#111;color:#0f0;padding:10px;border-radius:8px;max-width:90vw;font:12px/1.4 monospace">
+  <div><b>Diag</b> <button @click="runDiag()" style="margin-left:8px">Run</button></div>
+  <div>step: {{ debugInfo.step }}</div>
+  <div>fetch: {{ debugInfo.fetch }}</div>
+  <div>anon : {{ debugInfo.anon }}</div>
+  </div>
+
   <div class="layout-pc">
     <!-- 左：サイドナビ -->
     <aside class="sidenav">
