@@ -267,14 +267,10 @@ async function removeOne(id){
 }
 .sidenav{
   position: sticky; top: 0; height: 100vh; overflow: auto;
-  border: 1px solid #eee; border-radius: 12px; background: #fff; }
+  border: 1px solid #eee; border-radius: 12px; background: #fff;
+}
 .sidenav-inner{
- height: 100%;
- padding: 12px;
- display: flex;
- flex-direction: column;
- gap: 12px;      /* 上と離す用の余白 */
- min-height: 0;  /* ← 重要：子のスクロールを有効にする */
+ sidenav-inner{ height: 100%; padding: 12px; }  /* ← 通常のブロックでOK */
 }
 .nav-wrap{
   flex: 1 1 auto;
@@ -282,7 +278,7 @@ async function removeOne(id){
   min-height: 0;   /* ← 重要：中身が大きくても縮められる */
 }
 .logout{
-  margin-top: auto;     /* これで一番下へ */
+  margin-top: 12px;     /* これで一番下へ */
   align-self: stretch;  /* 横いっぱい（好みで） */
   border:1px solid #ddd;
   border-radius:8px;
