@@ -1,10 +1,9 @@
 <script setup>
+
 import { ref, computed, onMounted, watch } from 'vue'
 import MarkdownIt from 'markdown-it'
-import { db, ensureAnonLogin, auth } from './lib/firebase'
-/* ここ：getFirestore は不要。serverTimestamp を ts として alias する */
+import { db, ensureAnonLogin, auth, ts } from './lib/firebase'  // ← ts もここからでOK
 import {
-  serverTimestamp as ts,
   collection, addDoc, deleteDoc, doc,
   onSnapshot, query, orderBy, getDocs
 } from 'firebase/firestore'
