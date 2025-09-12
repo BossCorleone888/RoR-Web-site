@@ -324,7 +324,7 @@ async function removeOne(id){
 }
 
 .logo{
-  font-weight: 800;
+  font-weight: 1000;
   letter-spacing: .5px;
   color:#42b883;
   margin: 6px 4px 10px;
