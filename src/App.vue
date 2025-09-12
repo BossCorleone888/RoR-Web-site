@@ -1,9 +1,11 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import MarkdownIt from 'markdown-it'
-import { db, ensureAnonLogin, ts, auth } from './lib/firebase'
+import { db, ensureAnonLogin, auth } from './lib/firebase'
+import { getFirestore, serverTimestamp } from 'firebase/firestore'
 import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, getDocs } from 'firebase/firestore'
 import { onAuthStateChanged } from 'firebase/auth'
+export const ts = serverTimestamp // ← 関数をそのまま再輸出（呼び出しは ts()）
 
 const md = new MarkdownIt({ breaks: true })
 
