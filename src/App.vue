@@ -12,7 +12,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 const md = new MarkdownIt({ breaks: true })
 
 /* =============== 左サイド：Markdown ロード & 本文 =============== */
-const mdLoaders = import.meta.glob('./content/*.md', { query: '?raw' })
+const mdLoaders = import.meta.glob('./content/*.md?raw')  // ← ここだけ変更
 const topics = ref([])
 const selectedId = ref(null)
 const selectedHtml = ref('')
@@ -20,7 +20,9 @@ const selectedHtml = ref('')
 async function loadTopics() {
   const items = []
   for (const [path, loader] of Object.entries(mdLoaders)) {
-    const raw = await loader()
+    const mod = await loader()
+    const raw = mod?.default ?? mod   // ← 文字列を取り出す
+    if (typeof raw !== 'string') continue  // 念のためガード
     const first = (raw.split(/\r?\n/).find(l => l.trim()) || '').replace(/^#\s*/, '')
     const id = path.split('/').pop().replace(/\.md$/, '')
     items.push({ id, title: first || id, raw })
