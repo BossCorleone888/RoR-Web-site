@@ -174,7 +174,6 @@ async function removeOne(id){
       <div class="sidenav-inner">
         <img :src="rorLogo" alt="RoR ロゴ" class="brand-logo" decoding="async" />
         <div class="logo">MENU</div>
-        <button class="btn-mini" @click="logoutGate" title="ログアウト">ログアウト</button>
         <nav aria-label="サイドナビ">
           <ul class="nav-list">
             <li v-for="t in topics" :key="t.id">
@@ -186,6 +185,7 @@ async function removeOne(id){
             </li>
           </ul>
         </nav>
+        <button class="btn-mini logout" @click="logoutGate" title="ログアウト">ログアウト</button>
       </div>
     </aside>
     
@@ -265,10 +265,37 @@ async function removeOne(id){
   margin: 0 auto;
   font-family: system-ui,-apple-system,Segoe UI,Roboto,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif;
 }
-.sidenav{ position: sticky; top: 0; height: 100vh; overflow: hidden;
+.sidenav{
+  position: sticky; top: 0; height: 100vh; overflow: hidden;
   border: 1px solid #eee; border-radius: 12px; background: #fff; }
-.sidenav-inner{ height: 100%; overflow-y: auto; padding: 12px; }
-.logo{ font-weight: 800; letter-spacing: .5px; color:#42b883; margin: 6px 4px 10px; }
+
+ .sidenav-inner{
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+ }
+  .nav-wrap{
+  flex: 1 1 auto;
+  overflow-y: auto;     /* メニューだけスクロール */
+  margin-top: 8px;
+}
+.logout{
+  margin-top: auto;     /* これで一番下へ */
+  align-self: stretch;  /* 横いっぱい（好みで） */
+  border:1px solid #ddd;
+  border-radius:8px;
+  padding:8px 12px;
+  background:#fafafa;
+}
+.logout:hover{ background:#f2f2f2; }
+
+.logo{
+  font-weight: 800;
+  letter-spacing: .5px;
+  color:#42b883;
+  margin: 6px 4px 10px;
+  text-align: center;   /* ← これで MENU が中央寄せ */
+}
 .nav-list{ list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 .nav-link{ display:flex; align-items:center; gap:10px; text-decoration: none; color:#333; background:#fff;
   border:1px solid #e9e9e9; border-radius: 10px; padding: 10px 12px; transition: background .15s, border-color .15s, box-shadow .15s; }
