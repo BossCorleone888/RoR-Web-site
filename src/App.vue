@@ -302,11 +302,6 @@ async function removeOne(id){
   text-shadow: 0 1px 0 rgba(0,0,0,.25);
 }
 
-.logout:hover{
-  background: #d32f2f;
-  border-color: #b71c1c;
-}
-
 .logout:active{
   background: #c62828;
 }
@@ -322,7 +317,9 @@ async function removeOne(id){
   color:#42b883;
   margin: 6px 4px 10px;
   text-align: center;   /* ← これで MENU が中央寄せ */
+  font-size: 24px;   /* ← ここだけ追加/変更 */
 }
+
 .nav-list{ list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 .nav-link{ display:flex; align-items:center; gap:10px; text-decoration: none; color:#333; background:#fff;
   border:1px solid #e9e9e9; border-radius: 10px; padding: 10px 12px; transition: background .15s, border-color .15s, box-shadow .15s; }
