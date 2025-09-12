@@ -2,10 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import MarkdownIt from 'markdown-it'
 import { db, ensureAnonLogin, auth, ts } from './lib/firebase'
-import {
-  collection, addDoc, deleteDoc, doc,
-  onSnapshot, query, orderBy, getDocs
-} from 'firebase/firestore'
+import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore'
 import { onAuthStateChanged } from 'firebase/auth'
 
 const md = new MarkdownIt({ breaks: true })
@@ -120,12 +117,6 @@ async function removeOne(id){
   }
 }
 
-async function clearAll(){
-  if (needFirebase()) return
-  if(!confirm('全投稿を削除しますか？')) return
-  const snap = await getDocs(colRef)
-  for (const d of snap.docs) await deleteDoc(d.ref)
-}
 </script>
 
 <template>
@@ -188,7 +179,6 @@ async function clearAll(){
 
           <div class="row">
             <button class="btn-primary" type="submit" :disabled="!canSubmit || !hasFirebase">投稿</button>
-            <button class="btn-danger" type="button" @click="clearAll" :disabled="!hasFirebase">全削除</button>
           </div>
         </form>
 
