@@ -276,6 +276,7 @@ async function removeOne(id){
   flex: 1 1 auto;
   overflow-y: auto;
   min-height: 0;   /* ← 重要：中身が大きくても縮められる */
+  margin-top: 10px;  /* 好みで 8〜16px に調整 */
 }
 
 .logout{
