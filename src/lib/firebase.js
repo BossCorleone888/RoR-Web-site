@@ -10,15 +10,27 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth'
 
-// 🔴 直値をここに入れる（Firebase Console > プロジェクトの設定 > 一般 > Webアプリ > 構成）
+// 🔴 直値を入れる（Firebase Console > プロジェクトの設定 > 一般 > Webアプリ > 構成）
 const firebaseConfig = {
-  apiKey:     'AIzaSyCsOqpk7qzesQfNhIVb_Nm-lSAtWoNg2Z0',           // ← ここをあなたの値に
-  authDomain: 'ror-web-site.firebaseapp.com', // ← ここをあなたの値に
-  projectId:  'ror-web-site',                 // ← ここをあなたの値に
-  appId:      '1:1234567890:web:abcde1:777517324792:web:5fe680dc85e91239d71e0d',   // ← ここをあなたの値に
+  apiKey:     'AIzaSyXXXXXXXXXXXXXXX',           // ←←← あなたの apiKey
+  authDomain: 'your-project-id.firebaseapp.com', // ←←← あなたの authDomain
+  projectId:  'your-project-id',                 // ←←← あなたの projectId
+  appId:      '1:1234567890:web:abcdef123456',   // ←←← あなたの appId
 }
 
-// 値が未設定なら即わかるように
+// --- ここからデバッグ表示（本当にこのファイルが使われてるか確認用）---
+function mask(s) { return typeof s==='string' ? s.slice(0,6)+'…' : s }
+console.log('[FB_CFG LIVE]', {
+  apiKey: mask(firebaseConfig.apiKey),
+  authDomain: firebaseConfig.authDomain,
+  projectId: firebaseConfig.projectId,
+  appId: mask(firebaseConfig.appId),
+})
+// グローバルにぶら下げ（ブラウザF12で window._fb を見れば値が分かる）
+if (typeof window !== 'undefined') window._fb = { cfg: firebaseConfig }
+// ----------------------------------------------------------------------
+
+// 値チェック（未設定なら即わかる）
 for (const k of ['apiKey','authDomain','projectId','appId']) {
   if (!firebaseConfig[k]) throw new Error(`[firebaseConfig] ${k} を直値で入れてください`)
 }
@@ -40,7 +52,6 @@ async function waitForAuthReady(timeoutMs = 1500) {
 }
 
 export async function ensureAnonLogin() {
-  // 永続化（localStorage → ダメなら inMemory）
   try { await setPersistence(auth, browserLocalPersistence) }
   catch { try { await setPersistence(auth, inMemoryPersistence) } catch {} }
 
