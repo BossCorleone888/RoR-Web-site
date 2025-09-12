@@ -4,6 +4,7 @@ import MarkdownIt from 'markdown-it'
 import { db, ensureAnonLogin, auth, ts } from './lib/firebase'
 import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore'
 import { onAuthStateChanged } from 'firebase/auth'
+import rorLogo from './assets/ror.png'
 
 const md = new MarkdownIt({ breaks: true })
 
@@ -124,6 +125,7 @@ async function removeOne(id){
     <!-- 左：サイドナビ -->
     <aside class="sidenav">
       <div class="sidenav-inner">
+        <img :src="rorLogo" alt="RoR ロゴ" class="brand-logo" decoding="async" />
         <div class="logo">MENU</div>
         <nav aria-label="サイドナビ">
           <ul class="nav-list">
@@ -267,4 +269,16 @@ async function removeOne(id){
 
 .note{ font-size:12px; color:#666; margin:8px 4px; }
 body{ background:#f9f9f9; }
+
+.brand-logo{
+ display:block;
+ margin: 8px auto 12px;
+ max-width: 180px;   /* ここを好みで */
+ width: 100%;
+ height: auto;
+ border-radius: 12px;
+ box-shadow: 0 2px 6px rgba(0,0,0,.06);
+ object-fit: contain;
+}
+
 </style>
