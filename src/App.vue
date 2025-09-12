@@ -324,7 +324,7 @@ async function removeOne(id){
   text-shadow: 0 1px 0 rgba(0,0,0,.25);
   margin-top: 0; /* 余白は .side-sep が作る */
 }
-.btn-mini.logout:hover{ background:#d32f2f; border-color:#b71c1c; }
+.btn-mini.logout:hover{ background:#f0c3c3; border-color:#b71c1c; }
 .btn-mini.logout:active{ background:#c62828; }
 .btn-mini.logout:focus-visible{ outline:2px solid #ffeb3b; outline-offset:2px; }
 
