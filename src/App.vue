@@ -398,4 +398,10 @@ body{ background:#f9f9f9; }
 .gate-tip{ margin: 0 0 10px; color:#666; font-size: 13px; }
 .gate-err{ color:#e24c4c; font-size: 12px; margin-top:8px; }
 
+.side-sep{
+  border: 0;
+  border-top: 1px solid #eee;
+  margin: 8px 0;
+}
+
 </style>
