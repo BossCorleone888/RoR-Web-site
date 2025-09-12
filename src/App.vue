@@ -3,7 +3,6 @@ import { ref, computed, onMounted, watch } from 'vue'
 import MarkdownIt from 'markdown-it'
 import { db, ensureAnonLogin, auth, ts } from './lib/firebase'
 import {
-  serverTimestamp as _ts, // 予備（使わないけど残してOK）
   collection, addDoc, deleteDoc, doc,
   onSnapshot, query, orderBy, getDocs
 } from 'firebase/firestore'
@@ -11,32 +10,29 @@ import { onAuthStateChanged } from 'firebase/auth'
 
 const md = new MarkdownIt({ breaks: true })
 
-/* =============== 左サイド：Markdown ロード & 本文 =============== */
-// 文字列を“直接”受け取る（モジュールを介さないで型を固定）
+/* =============== 左サイド：Markdown ロード & 本文（安全版） =============== */
 const mdFiles = import.meta.glob('./content/*.md', {
- query: '?raw',
- import: 'default',
- eager: true,
+  query: '?raw',
+  import: 'default',
+  eager: true,           // ← 文字列を直接受け取る
 })
+
 const topics = ref([])
 const selectedId = ref(null)
 const selectedHtml = ref('')
 
- function loadTopics() {
-   const items = []
-   for (const [path, raw] of Object.entries(mdFiles)) {
-     if (typeof raw !== 'string') {
-       console.warn('[md] not string:', path, typeof raw)
-       continue
-     }
-     const firstLine = raw.split(/\r?\n/).find(l => l.trim()) || ''
-     const title = firstLine.replace(/^#\s*/, '') || '(無題)'
-     const id = path.split('/').pop().replace(/\.md$/, '')
-     items.push({ id, title, raw })
-   }
-   items.sort((a, b) => a.id.localeCompare(b.id, 'ja'))
-   topics.value = items
-   if (!selectedId.value && items.length) selectedId.value = items[0].id
+function loadTopics() {
+  const items = []
+  for (const [path, raw] of Object.entries(mdFiles)) {
+    if (typeof raw !== 'string') continue
+    const firstLine = raw.split(/\r?\n/).find(l => l.trim()) || ''
+    const title = firstLine.replace(/^#\s*/, '') || '(無題)'
+    const id = path.split('/').pop().replace(/\.md$/, '')
+    items.push({ id, title, raw })
+  }
+  items.sort((a, b) => a.id.localeCompare(b.id, 'ja'))
+  topics.value = items
+  if (!selectedId.value && items.length) selectedId.value = items[0].id
 }
 
 watch(selectedId, () => {
@@ -50,28 +46,29 @@ const MAX_LINES = 10
 
 const nameInput = ref('')
 const newMessage = ref('')
-const messages = ref([])
-const me = ref(null)
-const hasFirebase = ref(false)   // ← これでテンプレ側の表示/無効化を制御
-let colRef = null                // collection 参照（初期は null）
+const messages   = ref([])
+const me         = ref(null)
+const hasFirebase = ref(false)    // ← Firebase有効かどうか
+const SHOW_FB_NOTICE = false      // ← 一時的に「未設定バナー」を隠すなら false に固定
+
+let colRef = null
 
 const charCount = computed(() => newMessage.value.length)
 const lineCount = computed(() => newMessage.value ? newMessage.value.split(/\r\n|\r|\n/).length : 0)
 const isCharOver = computed(() => charCount.value > MAX_CHARS)
 const isLineOver = computed(() => lineCount.value > MAX_LINES)
-const canSubmit = computed(() => !!newMessage.value.trim() && !isCharOver.value && !isLineOver.value)
+const canSubmit  = computed(() => !!newMessage.value.trim() && !isCharOver.value && !isLineOver.value)
 
 onMounted(async () => {
-  await loadTopics()
+  loadTopics()
 
   // Firebase が有効なときだけ認証＆購読
   if (db) {
     hasFirebase.value = true
     const user = await ensureAnonLogin()
     me.value = user
-    if (auth) {
-      onAuthStateChanged(auth, (u) => { me.value = u })
-    }
+    if (auth) onAuthStateChanged(auth, (u) => { me.value = u })
+
     colRef = collection(db, 'messages')
     const q = query(colRef, orderBy('created_at', 'desc'))
     onSnapshot(q, (snap) => {
@@ -87,8 +84,6 @@ onMounted(async () => {
         }
       })
     })
-  } else {
-    console.warn('[App] Firebase 未設定：投稿UIは表示されるけど無効だべさ')
   }
 })
 
@@ -108,19 +103,17 @@ function handleSubmit(){
   addDoc(colRef, {
     name: nm,
     text: t,
-    created_at: ts(),          // lib 側の ts() を使用
+    created_at: ts(),
     uid: me.value?.uid ?? null,
   }).then(() => {
     newMessage.value = ''
-  }).catch(e => {
-    console.error('[addDoc] error', e)
-  })
+  }).catch(e => console.error('[addDoc] error', e))
 }
 
 async function removeOne(id){
   if (needFirebase()) return
   try {
-    await deleteDoc(doc(colRef.firestore, 'messages', id))
+    await deleteDoc(doc(db, 'messages', id))
   } catch (e) {
     console.error('[delete] error', e)
     alert('削除に失敗したかも。')
@@ -175,7 +168,8 @@ async function clearAll(){
       <div class="pad">
         <h3>✍️ メンバー書き込み</h3>
 
-        <div v-if="!hasFirebase" class="card" style="border-color:#f8cdcd;background:#fff5f5">
+        <!-- 一時的にバナーを隠したいときは SHOW_FB_NOTICE=false にしてある -->
+        <div v-if="SHOW_FB_NOTICE && !hasFirebase" class="card" style="border-color:#f8cdcd;background:#fff5f5">
           <strong style="color:#b20000">Firebase未設定</strong><br>
           `.env.local` を作ってビルドすると投稿できるべさ（下に手順書いた）。
         </div>
