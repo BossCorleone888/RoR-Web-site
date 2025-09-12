@@ -1,41 +1,17 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import MarkdownIt from 'markdown-it'
-import { db, ensureAnonLogin, ts } from './lib/firebase'
+import { db, ensureAnonLogin, ts, auth } from './lib/firebase'   // ← auth も import
 import {
   collection, addDoc, deleteDoc, doc,
   onSnapshot, query, orderBy, getDocs
 } from 'firebase/firestore'
+import { onAuthStateChanged } from 'firebase/auth'
 
 const md = new MarkdownIt({ breaks: true })
 
-/* =============== 左サイドナビ：MD自動読込（PC専用） =============== */
-const mdLoaders = import.meta.glob('./content/*.md', {
-  query: '?raw',
-  import: 'default',
-})
-
-const topics = ref([]) // { id, title, body }
-const SELECT_KEY = 'ror_selected_topic_v2'
-const selectedId = ref('')
-
-onMounted(async () => {
-  const entries = Object.entries(mdLoaders).sort((a, b) => a[0].localeCompare(b[0], 'ja'))
-  for (const [path, loader] of entries) {
-    const text = await loader()
-    const lines = text.split(/\r?\n/)
-    let title = (lines.find(l => l.trim().length) ?? 'Untitled').replace(/^#+\s*/, '').trim()
-    const id = path.split('/').pop().replace(/\.md$/, '')
-    topics.value.push({ id, title, body: text })
-  }
-  const saved = localStorage.getItem(SELECT_KEY)
-  selectedId.value = (saved && topics.value.some(t => t.id === saved)) ? saved : (topics.value[0]?.id || '')
-})
-
-watch(selectedId, v => { if (v) localStorage.setItem(SELECT_KEY, v) })
-
-const selectedTopic = computed(() => topics.value.find(t => t.id === selectedId.value))
-const selectedHtml  = computed(() => selectedTopic.value ? md.render(selectedTopic.value.body) : '')
+/* === 左サイド（省略可：そのままでOK） === */
+// ...（あなたのままでOK）
 
 /* =============== 右：メンバー投稿（Firestore共有） =============== */
 const MAX_CHARS = 500
@@ -43,20 +19,37 @@ const MAX_LINES = 10
 
 const nameInput = ref('')
 const newMessage = ref('')
-const messages = ref([]) // {id,name,text,at}
+const messages = ref([])
 
 const charCount = computed(() => newMessage.value.length)
 const lineCount = computed(() => newMessage.value ? newMessage.value.split(/\r\n|\r|\n/).length : 0)
 const isCharOver = computed(() => charCount.value > MAX_CHARS)
 const isLineOver = computed(() => lineCount.value > MAX_LINES)
-const canSubmit = computed(() =>
-  !!newMessage.value.trim() && !isCharOver.value && !isLineOver.value
-)
+const canSubmit = computed(() => !!newMessage.value.trim() && !isCharOver.value && !isLineOver.value)
 
 const col = collection(db, 'messages')
 
+// 🔰 ここが超重要：reactive なログイン情報
+const me = ref(null)
+
 onMounted(async () => {
-  await ensureAnonLogin()
+  console.log('[mounted] start')
+  // ① 匿名ログインを“必ず”確立
+  const user = await ensureAnonLogin()
+  me.value = user
+  console.log('[ensureAnonLogin] uid =', me.value?.uid)
+
+  // ② 状態変化も拾う（保険）
+  onAuthStateChanged(auth, (u) => {
+    me.value = u
+    console.log('[onAuthStateChanged] uid =', u?.uid)
+  })
+
+  // ③ デバッグしやすいようにグローバルへ
+  window._auth = auth
+  window._me = me
+
+  // ④ 投稿の購読
   const q = query(col, orderBy('created_at', 'desc'))
   onSnapshot(q, (snap) => {
     messages.value = snap.docs.map(d => {
@@ -67,26 +60,42 @@ onMounted(async () => {
         name: data.name || '名無し',
         text: data.text || '',
         at: dt.toLocaleString(),
+        uid: data.uid ?? null,   // ← ここ重要：uidを保持
       }
     })
+    console.log('[onSnapshot] first=', messages.value[0])
   })
+
+  console.log('[mounted] done')
 })
 
 function handleSubmit(){
   const t = newMessage.value.trim()
   const nm = nameInput.value.trim() || '名無し'
   if(!canSubmit.value) return
+  // ✅ 自分の UID を必ず保存
   addDoc(col, {
     name: nm,
     text: t,
     created_at: ts(),
+    uid: me.value?.uid ?? null,
   }).then(() => {
     newMessage.value = ''
+    console.log('[addDoc] ok, uid=', me.value?.uid)
+  }).catch(e => {
+    console.error('[addDoc] error', e)
   })
 }
 
 async function removeOne(id){
-  await deleteDoc(doc(db, 'messages', id))
+  try {
+    console.log('[delete] try id=', id)
+    await deleteDoc(doc(db, 'messages', id))
+    console.log('[delete] ok id=', id)
+  } catch (e) {
+    console.error('[delete] error', e)
+    alert('削除に失敗したかも。コンソールを確認してね。')
+  }
 }
 
 async function clearAll(){
@@ -161,8 +170,14 @@ async function clearAll(){
               <div class="meta">
                 <strong class="name">{{ m.name || '名無し' }}</strong>
                 <small class="time">{{ m.at }}</small>
-                <button class="btn-mini" type="button"
-                v-if="m.uid && auth.currentUser && m.uid === auth.currentUser.uid"@click="removeOne(m.id)">削除</button>
+                <button
+                  class="btn-mini"
+                  type="button"
+                  v-if="m.uid && me && m.uid === me.uid"
+                  @click="removeOne(m.id)"
+                >
+                  削除
+                </button>
               </div>
               <div class="text" v-text="m.text"></div>
             </li>

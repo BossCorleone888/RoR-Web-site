@@ -1,25 +1,40 @@
 // src/lib/firebase.js
-import { initializeApp } from "firebase/app";
-import { getFirestore, serverTimestamp } from "firebase/firestore";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+// ./lib/firebase.js or ./lib/firebase.ts
+import { initializeApp } from 'firebase/app'
+import {
+  getFirestore, serverTimestamp as ts
+} from 'firebase/firestore'
+import {
+  getAuth, onAuthStateChanged, signInAnonymously, setPersistence, browserLocalPersistence
+} from 'firebase/auth'
 
+// ↓ あなたの Firebase 設定に差し替え
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-};
+  apiKey: '...',
+  authDomain: '...',
+  projectId: '...',
+  appId: '...',
+}
 
-// ★ ここで Firebase プロジェクトと紐付け
-const app = initializeApp(firebaseConfig);
+const app  = initializeApp(firebaseConfig)
+export const db   = getFirestore(app)
+export const auth = getAuth(app)
+export { ts }
 
-export const db = getFirestore(app);
-export const ts = serverTimestamp;
-
-const auth = getAuth(app);
-
-// 匿名ログイン（初回だけ）
+// ✅ 匿名ログインを“必ず”確立して返す
 export async function ensureAnonLogin() {
-  if (!auth.currentUser) await signInAnonymously(auth);
-  return new Promise((resolve) => onAuthStateChanged(auth, (u) => u && resolve(u)));
+  // 永続化をローカルに（毎回 UID が変わるのを防ぐ）
+  await setPersistence(auth, browserLocalPersistence)
+
+  if (auth.currentUser) return auth.currentUser
+
+  // 既にサインイン中かもしれないので、まず一回待つ
+  const userNow = await new Promise(resolve => {
+    const off = onAuthStateChanged(auth, u => { off(); resolve(u) })
+  })
+  if (userNow) return userNow
+
+  // まだなら匿名サインイン
+  const cred = await signInAnonymously(auth)
+  return cred.user
 }
