@@ -8,6 +8,41 @@ import rorLogo from './assets/ror.png'
 
 const md = new MarkdownIt({ breaks: true })
 
+const SITE_HASH = import.meta.env.VITE_SITE_PASS_HASH?.trim?.() || ''
+const gateOpen  = ref(!SITE_HASH)   // ハッシュ未設定ならゲートOFF
+const gatePwd   = ref('')
+const gateErr   = ref('')
+
+async function sha256Hex(str){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('')
+}
+async function enterGate(){
+  try{
+    const h = await sha256Hex(gatePwd.value)
+    if (h === SITE_HASH){
+      gateOpen.value = true
+      localStorage.setItem('siteGate', h)
+      gateErr.value = ''
+      gatePwd.value = ''
+    } else {
+      gateErr.value = 'パスワードが違うべさ'
+    }
+  }catch(e){
+    gateErr.value = 'このブラウザは非対応かも（WebCryptoが必要）'
+  }
+}
+function logoutGate(){
+  localStorage.removeItem('siteGate')
+  gateOpen.value = false
+}
+onMounted(() => {
+  if (SITE_HASH){
+    const t = localStorage.getItem('siteGate')
+    if (t && t === SITE_HASH) gateOpen.value = true
+  }
+})
+
 /* =============== 左サイド：Markdown ロード & 本文（安全版） =============== */
 const mdFiles = import.meta.glob('./content/*.md', {
   query: '?raw',
@@ -120,13 +155,27 @@ async function removeOne(id){
 
 </script>
 
-<template>
+<!-- 🔒 パスワードゲート -->
+<template v-if="!gateOpen">
+  <div class="gate">
+    <div class="gate-card">
+      <h3>🔒 メンバー専用</h3>
+      <p class="gate-tip">パスワードを入力して入室してね</p>
+      <input class="input" type="password" v-model="gatePwd" placeholder="パスワード" @keyup.enter="enterGate" />
+      <button class="btn-primary" @click="enterGate">入る</button>
+      <p v-if="gateErr" class="gate-err">{{ gateErr }}</p>
+    </div>
+  </div>
+</template>
+
+<template v-else>
   <div class="layout-pc">
     <!-- 左：サイドナビ -->
     <aside class="sidenav">
       <div class="sidenav-inner">
         <img :src="rorLogo" alt="RoR ロゴ" class="brand-logo" decoding="async" />
         <div class="logo">MENU</div>
+        <button class="btn-mini" @click="logoutGate" title="ログアウト">ログアウト</button>
         <nav aria-label="サイドナビ">
           <ul class="nav-list">
             <li v-for="t in topics" :key="t.id">
@@ -280,5 +329,18 @@ body{ background:#f9f9f9; }
  box-shadow: 0 2px 6px rgba(0,0,0,.06);
  object-fit: contain;
 }
+
+.gate{
+  position: fixed; inset: 0; background: #f4f6f8;
+  display: grid; place-items: center; z-index: 9999;
+}
+.gate-card{
+  width: min(92vw, 420px);
+  background: #fff; border:1px solid #eee; border-radius: 14px;
+  padding: 20px; text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,.06);
+}
+.gate-card h3{ margin: 4px 0 10px; color:#333; }
+.gate-tip{ margin: 0 0 10px; color:#666; font-size: 13px; }
+.gate-err{ color:#e24c4c; font-size: 12px; margin-top:8px; }
 
 </style>
