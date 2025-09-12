@@ -2,10 +2,13 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import MarkdownIt from 'markdown-it'
 import { db, ensureAnonLogin, auth } from './lib/firebase'
-import { getFirestore, serverTimestamp } from 'firebase/firestore'
-import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, getDocs } from 'firebase/firestore'
+/* ここ：getFirestore は不要。serverTimestamp を ts として alias する */
+import {
+  serverTimestamp as ts,
+  collection, addDoc, deleteDoc, doc,
+  onSnapshot, query, orderBy, getDocs
+} from 'firebase/firestore'
 import { onAuthStateChanged } from 'firebase/auth'
-export const ts = serverTimestamp // ← 関数をそのまま再輸出（呼び出しは ts()）
 
 const md = new MarkdownIt({ breaks: true })
 
@@ -21,12 +24,10 @@ async function loadTopics() {
   const items = []
   for (const [path, loader] of Object.entries(mdLoaders)) {
     const raw = await loader()
-    // 最初の非空行をタイトルに（先頭の # を剥がす）
     const first = (raw.split(/\r?\n/).find(l => l.trim()) || '').replace(/^#\s*/, '')
     const id = path.split('/').pop().replace(/\.md$/, '')
     items.push({ id, title: first || id, raw })
   }
-  // 01_ 02_… 前提で安定ソート
   items.sort((a, b) => a.id.localeCompare(b.id, 'ja'))
   topics.value = items
   if (!selectedId.value && items.length) selectedId.value = items[0].id
@@ -58,27 +59,21 @@ const me = ref(null)
 
 onMounted(async () => {
   console.log('[mounted] start')
-
-  // --- 左：Markdown 読み込み
   await loadTopics()
 
-  // ① 匿名ログインを“必ず”確立（失敗しても null 返るだけで画面は動く設計）
   const user = await ensureAnonLogin()
   me.value = user
   console.log('[ensureAnonLogin] uid =', me.value?.uid)
 
-  // ② 状態変化も拾う（保険）
   onAuthStateChanged(auth, (u) => {
     me.value = u
     console.log('[onAuthStateChanged] uid =', u?.uid)
   })
 
-  // ③ デバッグ用
   window._auth = auth
   window._me = me
   window._topics = topics
 
-  // ④ 投稿の購読
   const q = query(col, orderBy('created_at', 'desc'))
   onSnapshot(q, (snap) => {
     messages.value = snap.docs.map(d => {
@@ -105,7 +100,7 @@ function handleSubmit(){
   addDoc(col, {
     name: nm,
     text: t,
-    created_at: ts(),
+    created_at: ts(),          // ← これでOK（serverTimestamp の別名）
     uid: me.value?.uid ?? null,
   }).then(() => {
     newMessage.value = ''
