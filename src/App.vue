@@ -92,10 +92,10 @@ const imageDataUrl = ref('')      // data:image/jpeg;base64,...
 const processing = ref(false)
 
 const charCount = computed(() => newMessage.value.length)
-const lineCount = computed(() => newMessage.value ? newMessage.value.split(new RegExp('\r\n|\r|\n')).length : 0) => newMessage.value ? newMessage.value.split(/
-|
-|
-/).length : 0)
+const lineCount = computed(() =>
+  newMessage.value ? newMessage.value.split(new RegExp('\\r\\n|\\r|\\n')).length : 0
+)
+
 const isCharOver = computed(() => charCount.value > MAX_CHARS)
 const isLineOver = computed(() => lineCount.value > MAX_LINES)
 const canSubmit = computed(() => (!!newMessage.value.trim() || !!imageDataUrl.value) && !isCharOver.value && !isLineOver.value)
