@@ -76,7 +76,7 @@ const MAX_CHARS = 500
 const MAX_LINES = 10
 const TARGET_MAX_W = 960           // 画像の最大横幅
 const TARGET_QUALITY = 0.75        // JPEG品質
-const MAX_B64_CHARS = 900_000      // Firestore 1MB制限を考慮してベース64長を制限（ざっくり）
+const MAX_B64_CHARS = 900000      // Firestore 1MB制限を考慮してベース64長を制限（ざっくり）
 
 const nameInput = ref('')
 const newMessage = ref('')
