@@ -45,7 +45,7 @@ const md = new MarkdownIt({ breaks: true })
 // ビルド時に同期読み込み
 const mdModules = import.meta.glob('./content/*.md', { as: 'raw', eager: true })
 
-const topics = ref([])          // ← 型注釈を外す
+const topics = ref([])
 const selectedId = ref(null)
 const selectedHtml = ref('')
 
@@ -71,15 +71,12 @@ watch(selectedId, () => {
   selectedHtml.value = t ? md.render(t.raw) : ''
 })
 
-watch(selectedId, () => {
-  const t = topics.value.find(x => x.id === selectedId.value)
-  selectedHtml.value = t ? md.render(t.raw) : ''
-})
-
-
-/* =============== 右：メンバー投稿（Firestore共有） =============== */
+/* =============== 右：メンバー投稿（Firestore共有・No-CC版：Firestoreに圧縮Base64保存） =============== */
 const MAX_CHARS = 500
 const MAX_LINES = 10
+const TARGET_MAX_W = 960           // 画像の最大横幅
+const TARGET_QUALITY = 0.75        // JPEG品質
+const MAX_B64_CHARS = 900_000      // Firestore 1MB制限を考慮してベース64長を制限（ざっくり）
 
 const nameInput = ref('')
 const newMessage = ref('')
@@ -88,11 +85,20 @@ const me = ref(null)
 const hasFirebase = ref(false)    // Firebase設定があれば true
 let colRef = null                 // collection 参照
 
+// 画像選択（圧縮→dataURL 格納）
+const fileInput = ref(null)
+const selectedFileName = ref('')
+const imageDataUrl = ref('')      // data:image/jpeg;base64,...
+const processing = ref(false)
+
 const charCount = computed(() => newMessage.value.length)
-const lineCount = computed(() => newMessage.value ? newMessage.value.split(/\r\n|\r|\n/).length : 0)
+const lineCount = computed(() => newMessage.value ? newMessage.value.split(/
+|
+|
+/).length : 0)
 const isCharOver = computed(() => charCount.value > MAX_CHARS)
 const isLineOver = computed(() => lineCount.value > MAX_LINES)
-const canSubmit = computed(() => !!newMessage.value.trim() && !isCharOver.value && !isLineOver.value)
+const canSubmit = computed(() => (!!newMessage.value.trim() || !!imageDataUrl.value) && !isCharOver.value && !isLineOver.value)
 
 onMounted(async () => {
   // パスゲート自動開放
@@ -120,9 +126,14 @@ onMounted(async () => {
           text: data.text || '',
           at: dt.toLocaleString(),
           uid: data.uid ?? null,
+          imageData: data.imageData ?? '',
         }
       })
     })
+  } else {
+    console.warn('[App] Firebase 未設定：投稿UIは表示されるけど無効だべさ')
+  }
+})
   } else {
     console.warn('[App] Firebase 未設定：投稿UIは表示されるけど無効だべさ')
   }
@@ -136,27 +147,84 @@ function needFirebase() {
   return false
 }
 
-function handleSubmit(){
+async function onFileChange(e){
+  const file = e.target?.files?.[0] || null
+  if (!file){ selectedFileName.value=''; imageDataUrl.value=''; return }
+  if (!file.type.startsWith('image/')){ alert('画像ファイルのみOK'); e.target.value=''; return }
+  try{
+    processing.value = true
+    const dataUrl = await compressToDataURL(file, TARGET_MAX_W, TARGET_QUALITY)
+    if (dataUrl.length > MAX_B64_CHARS){
+      alert('画像が大きすぎるみたい（もう少し小さくしてね）')
+      e.target.value=''; imageDataUrl.value=''; selectedFileName.value=''
+      return
+    }
+    imageDataUrl.value = dataUrl
+    selectedFileName.value = file.name
+  }catch(err){
+    console.error('[image compress] err', err)
+    alert('画像の処理に失敗したかも…')
+    e.target.value=''; imageDataUrl.value=''; selectedFileName.value=''
+  }finally{
+    processing.value = false
+  }
+}
+
+function compressToDataURL(file, maxW=960, quality=0.75){
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const scale = Math.min(1, maxW / img.width)
+      const w = Math.round(img.width * scale)
+      const h = Math.round(img.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = w; canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if(!ctx) return reject(new Error('canvas unsupported'))
+      ctx.drawImage(img, 0, 0, w, h)
+      const mime = 'image/jpeg'
+      const url = canvas.toDataURL(mime, quality)
+      resolve(url)
+    }
+    img.onerror = reject
+    img.src = URL.createObjectURL(file)
+  })
+}
+
+async function handleSubmit(){
   if (needFirebase()) return
   const t = newMessage.value.trim()
   const nm = nameInput.value.trim() || '名無し'
   if(!canSubmit.value) return
-  addDoc(colRef, {
-    name: nm,
-    text: t,
-    created_at: ts(),          // serverTimestamp()
-    uid: me.value?.uid ?? null,
-  }).then(() => {
+
+  try{
+    await addDoc(colRef, {
+      name: nm,
+      text: t,
+      created_at: ts(),          // serverTimestamp()
+      uid: me.value?.uid ?? null,
+      imageData: imageDataUrl.value || '',
+    })
+
+    // リセット
     newMessage.value = ''
-  }).catch(e => {
+    if (fileInput.value) fileInput.value.value = ''
+    imageDataUrl.value = ''
+    selectedFileName.value = ''
+  }catch(e){
     console.error('[addDoc] error', e)
-  })
+    alert('投稿でエラー出たみたい…')
+  }
 }
 
-async function removeOne(id){
+async function removeOne(m){
   if (needFirebase()) return
   try {
-    await deleteDoc(doc(colRef.firestore, 'messages', id))
+    if (!m?.uid || !me?.value || m.uid !== me.value.uid){
+      alert('自分の投稿だけ削除できるよ')
+      return
+    }
+    await deleteDoc(doc(colRef.firestore, 'messages', m.id))
   } catch (e) {
     console.error('[delete] error', e)
     alert('削除に失敗したかも。')
@@ -235,13 +303,20 @@ async function removeOne(id){
           <label class="lbl">メッセージ</label>
           <textarea v-model="newMessage" class="textarea" placeholder="複数行OK。ノウハウや連絡事項などをどうぞ" rows="5" :disabled="!hasFirebase"></textarea>
 
+          <label class="lbl">画像（1枚まで・自動で縮小）</label>
+          <input ref="fileInput" type="file" accept="image/*" class="input" :disabled="!hasFirebase || processing" @change="onFileChange" />
+          <div v-if="selectedFileName" style="font-size:12px;color:#555;margin-top:4px;">選択中: {{ selectedFileName }}</div>
+          <img v-if="imageDataUrl" :src="imageDataUrl" alt="プレビュー" style="max-width: 240px; display:block; margin-top:8px; border-radius:8px;" />
+
           <div class="hint">
             <span :class="{over:isCharOver}">{{ charCount }}/{{ MAX_CHARS }}文字</span><span>・</span>
             <span :class="{over:isLineOver}">{{ lineCount }}/{{ MAX_LINES }}行</span>
           </div>
 
           <div class="row">
-            <button class="btn-primary" type="submit" :disabled="!canSubmit || !hasFirebase">投稿</button>
+            <button class="btn-primary" type="submit" :disabled="!canSubmit || !hasFirebase || uploading">
+              {{ uploading ? 'アップロード中…' : '投稿' }}
+            </button>
           </div>
         </form>
 
@@ -252,17 +327,18 @@ async function removeOne(id){
               <div class="meta">
                 <strong class="name">{{ m.name || '名無し' }}</strong>
                 <small class="time">{{ m.at }}</small>
-                <button class="btn-mini" type="button" v-if="m.uid && me && m.uid === me.uid" @click="removeOne(m.id)">
+                <button class="btn-mini" type="button" v-if="m.uid && me && m.uid === me.uid" @click="removeOne(m)">
                   削除
                 </button>
               </div>
               <div class="text" v-text="m.text"></div>
+              <img v-if="m.imageData" :src="m.imageData" alt="投稿画像" style="max-width: 240px; display:block; margin-top:8px; border-radius:8px;" />
             </li>
             <li v-if="messages.length===0" class="empty">まだ投稿はありません。</li>
           </ul>
         </div>
 
-        <p class="note">※ Firestoreでリアルタイム共有しています。</p>
+        <p class="note">※ Firestore + Storage で画像を共有しています。</p>
       </div>
     </aside>
   </div>
