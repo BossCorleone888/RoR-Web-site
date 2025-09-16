@@ -92,7 +92,7 @@ const imageDataUrl = ref('')      // data:image/jpeg;base64,...
 const processing = ref(false)
 
 const charCount = computed(() => newMessage.value.length)
-const lineCount = computed(() => newMessage.value ? newMessage.value.split(/
+const lineCount = computed(() => newMessage.value ? newMessage.value.split(new RegExp('\\r\\n|\\r|\\n')).length : 0) => newMessage.value ? newMessage.value.split(/
 |
 |
 /).length : 0)
@@ -130,10 +130,6 @@ onMounted(async () => {
         }
       })
     })
-  } else {
-    console.warn('[App] Firebase 未設定：投稿UIは表示されるけど無効だべさ')
-  }
-})
   } else {
     console.warn('[App] Firebase 未設定：投稿UIは表示されるけど無効だべさ')
   }
@@ -338,7 +334,7 @@ async function removeOne(m){
           </ul>
         </div>
 
-        <p class="note">※ Firestore + Storage で画像を共有しています。</p>
+        <p class="note">※ Firestore（Base64縮小画像）で共有しています。</p>
       </div>
     </aside>
   </div>
